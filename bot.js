@@ -1,7 +1,7 @@
 const TelegramBot = require("node-telegram-bot-api");
 
-// توکن ربات را اینجا قرار بده
-const bot = new TelegramBot("TOKEN_HERE", { polling: true });
+
+const bot = new TelegramBot("8655382022:AAH4_Fp500kX8d1ib4mfu9D3rcEaeY3MLFo", { polling: true });
 
 // دستور /start
 bot.onText(/\/start/, (msg) => {
