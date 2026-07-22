@@ -1,26 +1,37 @@
 // ===============================
 // 1) HTTP SERVER (Render)
 // ===============================
-const http = require("http");
+const express = require("express");
+const app = express();
+app.use(express.json());
 
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Bot is running");
+app.get("/", (req, res) => {
+  res.send("Bot is running");
 });
 
-server.listen(process.env.PORT || 3000, () => {
+app.listen(process.env.PORT || 3000, () => {
   console.log("HTTP server is running");
 });
 
 // ===============================
-// 2) Telegram Bot
+// 2) Telegram Bot (Webhook)
 // ===============================
 const TelegramBot = require("node-telegram-bot-api");
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
-console.log("Telegram bot is running...");
+const bot = new TelegramBot(process.env.BOT_TOKEN, { webHook: true });
+
+// تنظیم webhook روی Render
+bot.setWebHook(`https://applink-bot.onrender.com/${process.env.BOT_TOKEN}`);
+
+// مسیر webhook
+app.post(`/${process.env.BOT_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+console.log("Telegram bot is running with webhook...");
 
 // ===============================
 // 3) /start command
@@ -60,11 +71,7 @@ bot.on("message", (msg) => {
 // ===============================
 // 6) اتصال به دیوار
 // ===============================
-
-// لینک نمونه (بعداً فیلترها را سفارشی می‌کنیم)
 const DIVAR_URL = "https://divar.ir/s/mashhad/apartment-sell";
-
-// ذخیره آگهی‌های قبلی برای جلوگیری از تکراری
 let lastAds = new Set();
 
 // گرفتن HTML صفحه دیوار
@@ -78,7 +85,7 @@ async function fetchDivarPage() {
   }
 }
 
-// استخراج آگهی‌ها از HTML
+// استخراج آگهی‌ها
 function extractAds(html) {
   const $ = cheerio.load(html);
   const ads = [];
