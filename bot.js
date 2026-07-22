@@ -121,6 +121,25 @@ function processAds(ads) {
   ads.forEach((ad) => {
     if (!lastAds.has(ad.link)) {
       lastAds.add(ad.link);
+      bot.onText(/\/menu/, (msg) => {
+  const chatId = msg.chat.id;
+
+  const menu = {
+    reply_markup: {
+      keyboard: [
+        ["🔍 ساخت فیلتر جدید"],
+        ["📄 مشاهده فیلتر فعلی"],
+        ["▶️ شروع جستجوی خودکار"],
+        ["⏹ توقف جستجو"],
+        ["🔗 دریافت لینک نهایی"],
+        ["❓ راهنما"]
+      ],
+      resize_keyboard: true
+    }
+  };
+
+  bot.sendMessage(chatId, "منوی اصلی 👇", menu);
+});
       sendToTelegram(ad);
     }
   });
