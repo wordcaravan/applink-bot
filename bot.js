@@ -199,3 +199,9 @@ bot.on("message", async (msg) => {
     sendDivarItem(bot, chatId, sampleItem);
   }
 });
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => res.send("Bot is running"));
+
+app.listen(3000, () => console.log("Fake port opened"));
