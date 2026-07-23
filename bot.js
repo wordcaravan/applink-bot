@@ -1,168 +1,201 @@
-// ===============================
-// 1) HTTP SERVER (Render)
-// ===============================
-const express = require("express");
-const app = express();
-app.use(express.json());
-
-app.get("/", (req, res) => {
-  res.send("Bot is running");
-});
-
-app.listen(process.env.PORT || 3000, () => {
-  console.log("HTTP server is running");
-});
-
-// ===============================
-// 2) Telegram Bot (Webhook)
-// ===============================
 const TelegramBot = require("node-telegram-bot-api");
-const axios = require("axios");
-const cheerio = require("cheerio");
+const mongoose = require("mongoose");
+require("dotenv").config();
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, { webHook: true });
+// ------------------ اتصال به MongoDB ------------------
+mongoose
+  .connect(process.env.MONGO_URL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.log("MongoDB Error:", err));
 
-// تنظیم webhook روی Render
-bot.setWebHook(`https://applink-bot.onrender.com/${process.env.BOT_TOKEN}`);
-
-// مسیر webhook
-app.post(`/${process.env.BOT_TOKEN}`, (req, res) => {
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
+// ------------------ مدل کاربر ------------------
+const userSchema = new mongoose.Schema({
+  chatId: Number,
+  phone: String,
+  neighborhood: String,
+  price: String,
+  area: String,
 });
 
-console.log("Telegram bot is running with webhook...");
+const User = mongoose.model("User", userSchema);
 
-// ===============================
-// 3) /start command
-// ===============================
-bot.onText(/\/start/, (msg) => {
+// ------------------ اتصال به ربات ------------------
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+
+// ------------------ منوی اصلی ------------------
+const mainMenu = {
+  reply_markup: {
+    keyboard: [
+      ["📱 ثبت شماره"],
+      ["📍 انتخاب محله"],
+      ["💰 انتخاب قیمت"],
+      ["📐 انتخاب متراژ"],
+      ["🔍 جستجوی فایل‌های دیوار"],
+    ],
+    resize_keyboard: true,
+  },
+};
+
+// ------------------ شروع ------------------
+bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
 
-  bot.sendMessage(chatId, "برای فعال‌سازی سرویس، شماره تماس خود را ارسال کنید.", {
-    reply_markup: {
-      keyboard: [
-        [{ text: "📞 ارسال شماره تماس", request_contact: true }]
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: true
-    }
-  });
+  await User.findOneAndUpdate(
+    { chatId },
+    { chatId },
+    { upsert: true, new: true }
+  );
+
+  bot.sendMessage(chatId, "سلام سعید! 👋\nبه ربات آپ‌لینک خوش آمدی.", mainMenu);
 });
 
-// ===============================
-// 4) دریافت شماره تماس
-// ===============================
-bot.on("contact", (msg) => {
-  const chatId = msg.chat.id;
-  const phone = msg.contact.phone_number;
-  const name = msg.contact.first_name;
-
-  bot.sendMessage(chatId, `🌟 ${name}\nشماره ${phone} دریافت شد و سرویس فعال شد.`);
-});
-
-// ===============================
-// 5) نمایش پیام‌های ورودی
-// ===============================
-bot.on("message", (msg) => {
-  console.log("پیام جدید:", msg.text);
-});
-
-// ===============================
-// 6) منوی اصلی ربات
-// ===============================
-bot.onText(/\/menu/, (msg) => {
+// ------------------ ثبت شماره ------------------
+bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
 
-  const menu = {
-    reply_markup: {
-      keyboard: [
-        ["🔍 ساخت فیلتر جدید"],
-        ["📄 مشاهده فیلتر فعلی"],
-        ["▶️ شروع جستجوی خودکار"],
-        ["⏹ توقف جستجو"],
-        ["🔗 دریافت لینک نهایی"],
-        ["❓ راهنما"]
-      ],
-      resize_keyboard: true
-    }
-  };
+  if (msg.text === "📱 ثبت شماره") {
+    bot.sendMessage(chatId, "لطفاً شماره‌ات را ارسال کن یا روی دکمه زیر بزن:", {
+      reply_markup: {
+        keyboard: [
+          [
+            {
+              text: "ارسال شماره من",
+              request_contact: true,
+            },
+          ],
+        ],
+        resize_keyboard: true,
+      },
+    });
+  }
 
-  bot.sendMessage(chatId, "منوی اصلی 👇", menu);
+  if (msg.contact) {
+    await User.findOneAndUpdate(
+      { chatId },
+      { phone: msg.contact.phone_number }
+    );
+
+    bot.sendMessage(chatId, "شماره با موفقیت ثبت شد ✔", mainMenu);
+  }
 });
 
-// ===============================
-// 7) اتصال به دیوار
-// ===============================
-const DIVAR_URL = "https://divar.ir/s/mashhad/apartment-sell";
-let lastAds = new Set();
+// ------------------ انتخاب محله ------------------
+bot.on("message", async (msg) => {
+  const chatId = msg.chat.id;
 
-// گرفتن HTML صفحه دیوار
-async function fetchDivarPage() {
+  if (msg.text === "📍 انتخاب محله") {
+    bot.sendMessage(chatId, "محله مورد نظر را وارد کن:");
+    return;
+  }
+
+  const user = await User.findOne({ chatId });
+
+  if (user && !user.neighborhood && msg.text !== "📍 انتخاب محله") {
+    await User.findOneAndUpdate({ chatId }, { neighborhood: msg.text });
+    bot.sendMessage(chatId, "محله ذخیره شد ✔", mainMenu);
+  }
+});
+
+// ------------------ انتخاب قیمت ------------------
+bot.on("message", async (msg) => {
+  const chatId = msg.chat.id;
+
+  if (msg.text === "💰 انتخاب قیمت") {
+    bot.sendMessage(chatId, "قیمت مورد نظر را وارد کن (مثلاً: 4 تا 5 میلیارد):");
+    return;
+  }
+
+  const user = await User.findOne({ chatId });
+
+  if (user && !user.price && msg.text !== "💰 انتخاب قیمت") {
+    await User.findOneAndUpdate({ chatId }, { price: msg.text });
+    bot.sendMessage(chatId, "قیمت ذخیره شد ✔", mainMenu);
+  }
+});
+
+// ------------------ انتخاب متراژ ------------------
+bot.on("message", async (msg) => {
+  const chatId = msg.chat.id;
+
+  if (msg.text === "📐 انتخاب متراژ") {
+    bot.sendMessage(chatId, "متراژ مورد نظر را وارد کن (مثلاً: 80 تا 120):");
+    return;
+  }
+
+  const user = await User.findOne({ chatId });
+
+  if (user && !user.area && msg.text !== "📐 انتخاب متراژ") {
+    await User.findOneAndUpdate({ chatId }, { area: msg.text });
+    bot.sendMessage(chatId, "متراژ ذخیره شد ✔", mainMenu);
+  }
+});
+
+// ------------------ تابع ارسال عکس ملک ------------------
+async function sendDivarItem(bot, chatId, item) {
   try {
-    const response = await axios.get(DIVAR_URL);
-    return response.data;
+    // اگر چند عکس دارد → آلبوم
+    if (item.images && item.images.length > 1) {
+      const mediaGroup = item.images.map((img) => ({
+        type: "photo",
+        media: img,
+      }));
+
+      await bot.sendMediaGroup(chatId, mediaGroup);
+    } else if (item.images && item.images.length === 1) {
+      await bot.sendPhoto(chatId, item.images[0]);
+    }
+
+    // کپشن کامل
+    const caption = `
+🏠 ${item.title}
+📍 محله: ${item.neighborhood}
+📐 متراژ: ${item.area}
+💰 قیمت: ${item.price}
+
+🔗 لینک آگهی:
+${item.link}
+    `;
+
+    await bot.sendMessage(chatId, caption);
   } catch (err) {
-    console.log("❌ خطا در دریافت دیوار:", err.message);
-    return null;
+    console.log("Error sending item:", err);
+    bot.sendMessage(chatId, "❌ خطا در ارسال عکس ملک");
   }
 }
 
-// استخراج آگهی‌ها
-function extractAds(html) {
-  const $ = cheerio.load(html);
-  const ads = [];
+// ------------------ جستجوی دیوار ------------------
+bot.on("message", async (msg) => {
+  const chatId = msg.chat.id;
 
-  $("div.post-card-item").each((i, el) => {
-    const title = $(el).find("h2").text().trim();
-    const price = $(el).find(".kt-post-card__description").text().trim();
-    const link = "https://divar.ir" + $(el).find("a").attr("href");
+  if (msg.text === "🔍 جستجوی فایل‌های دیوار") {
+    const user = await User.findOne({ chatId });
 
-    if (title && link) {
-      ads.push({ title, price, link });
+    if (!user.phone || !user.neighborhood || !user.price || !user.area) {
+      bot.sendMessage(chatId, "لطفاً همه فیلترها را کامل کن.", mainMenu);
+      return;
     }
-  });
 
-  return ads;
-}
+    bot.sendMessage(
+      chatId,
+      `فیلترهای شما:\n\n📍 محله: ${user.neighborhood}\n💰 قیمت: ${user.price}\n📐 متراژ: ${user.area}\n\nدر حال جستجو در دیوار...`
+    );
 
-// ارسال پیام به تلگرام
-function sendToTelegram(ad) {
-  const message = `
-🏠 *${ad.title}*
-💰 قیمت: ${ad.price}
+    // نمونهٔ تستی (بعداً API واقعی دیوار را اضافه می‌کنیم)
+    const sampleItem = {
+      title: "آپارتمان 85 متری نوساز",
+      neighborhood: user.neighborhood,
+      area: user.area,
+      price: user.price,
+      link: "https://divar.ir/v/test-item",
+      images: [
+        "https://via.placeholder.com/600x400.png?text=Photo+1",
+        "https://via.placeholder.com/600x400.png?text=Photo+2"
+      ]
+    };
 
-🔗 لینک:
-${ad.link}
-`;
-
-  bot.sendMessage(process.env.CHAT_ID, message, { parse_mode: "Markdown" });
-}
-
-// پردازش آگهی‌ها
-function processAds(ads) {
-  ads.forEach((ad) => {
-    if (!lastAds.has(ad.link)) {
-      lastAds.add(ad.link);
-      sendToTelegram(ad);
-    }
-  });
-}
-
-// اجرای سیستم دیوار
-async function runDivarSystem() {
-  console.log("⏳ اجرای سیستم دیوار...");
-
-  const html = await fetchDivarPage();
-  if (!html) return;
-
-  const ads = extractAds(html);
-  processAds(ads);
-
-  console.log("✔ پردازش انجام شد");
-}
-
-// اجرای هر ۱۵ دقیقه
-setInterval(async () => {
-  await runDivarSystem();
-}, 15 * 60 * 1000);
+    sendDivarItem(bot, chatId, sampleItem);
+  }
+});
