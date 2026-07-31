@@ -8,6 +8,7 @@ app.get("/", (req, res) => {
 app.listen(process.env.PORT || 3000, () => {
   console.log("HTTP server is running on port " + (process.env.PORT || 3000));
 });
+
 const TelegramBot = require("node-telegram-bot-api");
 const axios = require("axios");
 const mongoose = require("mongoose");
@@ -23,6 +24,7 @@ async function start() {
 
   const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
+  // ⭐ اصلاح کامل مدل User
   const User = mongoose.model(
     "User",
     new mongoose.Schema({
@@ -38,10 +40,13 @@ async function start() {
         autoRenew: Boolean
       },
       filters: {
-        regions: [String],
-        street: String,
-        type: String,
-        ownerType: String
+        type: Object,
+        default: {
+          regions: [],
+          street: "",
+          type: "",
+          ownerType: ""
+        }
       }
     })
   );
@@ -54,6 +59,7 @@ async function start() {
     })
   );
 
+  // ⭐ اصلاح بخش ساخت کاربر جدید
   async function findOrCreateUser(msg, contact) {
     const chat_id = msg.chat.id;
     let user = await User.findOne({ chat_id });
@@ -71,7 +77,12 @@ async function start() {
           end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           autoRenew: true
         },
-        filters: {}
+        filters: {
+          regions: [],
+          street: "",
+          type: "",
+          ownerType: ""
+        }
       });
       await user.save();
     }
