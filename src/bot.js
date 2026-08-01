@@ -434,3 +434,106 @@ async function start() {
 }
 
 start();
+async function fetchDivarPostsForUser(user) {
+  try {
+    const url = `https://api.divar.ir/v8/web-search/mashhad/real-estate`;
+    const response = await axios.post(url, {
+      query: user.filters.estateType || "",
+      city: "mashhad"
+    });
+
+    const posts = response.data.widget_list.slice(0, 10);
+
+    for (const post of posts) {
+      const token = post.data.token;
+      const post_id = token;
+
+      const seen = await SeenPost.findOne({ post_id });
+      if (seen) continue;
+
+      const title = post.data.title || "";
+      const desc = post.data.description || "";
+      const district = post.data.district || "";
+      const price = post.data.price || "";
+      const area = post.data.area || "";
+      const year = post.data.year || "";
+      const category = post.data.category || "";
+      const business = post.data.business_type || "";
+
+      if (user.filters.regions.length > 0) {
+        if (!user.filters.regions.includes(district)) continue;
+      }
+
+      if (user.filters.street) {
+        if (!desc.includes(user.filters.street)) continue;
+      }
+
+      if (user.filters.estateType) {
+        if (!category.includes(user.filters.estateType)) continue;
+      }
+
+      if (user.filters.adType === "فروش") {
+        if (!desc.includes("فروش")) continue;
+      }
+
+      if (user.filters.adType === "رهن کامل") {
+        if (!desc.includes("رهن کامل")) continue;
+      }
+
+      if (user.filters.adType === "رهن و اجاره") {
+        if (!desc.includes("اجاره")) continue;
+      }
+
+      if (user.filters.area) {
+        if (parseInt(area) < parseInt(user.filters.area)) continue;
+      }
+
+      if (user.filters.price) {
+        if (parseInt(price) > parseInt(user.filters.price)) continue;
+      }
+
+      if (user.filters.year) {
+        if (parseInt(year) < parseInt(user.filters.year)) continue;
+      }
+
+      if (user.filters.features.length > 0) {
+        const features = user.filters.features;
+
+        const hasParking = desc.includes("پارکینگ");
+        const hasStorage = desc.includes("انباری");
+        const hasElevator = desc.includes("آسانسور");
+        const hasBalcony = desc.includes("بالکن") || desc.includes("تراس");
+
+        if (features.includes("پارکینگ") && !hasParking) continue;
+        if (features.includes("انباری") && !hasStorage) continue;
+        if (features.includes("آسانسور") && !hasElevator) continue;
+        if (features.includes("بالکن") && !hasBalcony) continue;
+      }
+
+      if (user.filters.ownerType === "مالک") {
+        if (business !== "personal") continue;
+      }
+
+      if (user.filters.ownerType === "مشاور املاک") {
+        if (business !== "business") continue;
+      }
+
+      await new SeenPost({ post_id, created_at: new Date() }).save();
+
+      bot.sendMessage(
+        user.chat_id,
+        `🏠 *${title}*\n\n📍 منطقه: ${district}\n📏 متراژ: ${area}\n💰 قیمت: ${price}\n🗓 سال ساخت: ${year}\n\n${desc}\n\nلینک آگهی:\nhttps://divar.ir/v/${token}`,
+        { parse_mode: "Markdown" }
+      );
+    }
+  } catch (err) {
+    console.log("Error fetching Divar:", err.message);
+  }
+}
+
+setInterval(async () => {
+  const users = await User.find({});
+  for (const user of users) {
+    fetchDivarPostsForUser(user);
+  }
+}, 5000);
