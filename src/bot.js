@@ -24,7 +24,6 @@ async function start() {
 
   const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-  // ⭐ اصلاح کامل مدل User
   const User = mongoose.model(
     "User",
     new mongoose.Schema({
@@ -44,7 +43,12 @@ async function start() {
         default: {
           regions: [],
           street: "",
-          type: "",
+          estateType: "",
+          adType: "",
+          area: "",
+          price: "",
+          year: "",
+          features: [],
           ownerType: ""
         }
       }
@@ -59,7 +63,6 @@ async function start() {
     })
   );
 
-  // ⭐ اصلاح بخش ساخت کاربر جدید
   async function findOrCreateUser(msg, contact) {
     const chat_id = msg.chat.id;
     let user = await User.findOne({ chat_id });
@@ -80,7 +83,12 @@ async function start() {
         filters: {
           regions: [],
           street: "",
-          type: "",
+          estateType: "",
+          adType: "",
+          area: "",
+          price: "",
+          year: "",
+          features: [],
           ownerType: ""
         }
       });
@@ -96,67 +104,226 @@ async function start() {
     await user.save();
   }
 
-  bot.onText(/\/start/, async (msg) => {
-    await findOrCreateUser(msg, null);
-
+  function mainMenu(chat_id) {
     bot.sendMessage(
-      msg.chat.id,
-      "سلام\nبرای فعال‌سازی سرویس، شماره تماس خودت را ارسال کن.",
+      chat_id,
+      "سلام! لطفاً یکی از گزینه‌های زیر را انتخاب کن:",
       {
         reply_markup: {
           keyboard: [
-            [
-              {
-                text: "📞 ارسال شماره تماس",
-                request_contact: true
-              }
-            ]
+            [{ text: "📍 انتخاب منطقه" }],
+            [{ text: "🏞️ انتخاب خیابان" }],
+            [{ text: "🏠 نوع ملک" }],
+            [{ text: "📄 نوع آگهی" }],
+            [{ text: "📏 متراژ" }],
+            [{ text: "💰 قیمت" }],
+            [{ text: "🗓️ سال ساخت" }],
+            [{ text: "🚗 امکانات" }],
+            [{ text: "🔍 جست‌وجوی نهایی" }]
           ],
           resize_keyboard: true
         }
       }
     );
+  }
+
+  bot.onText(/\/start/, async (msg) => {
+    const user = await findOrCreateUser(msg, null);
+
+    if (!user.phone) {
+      bot.sendMessage(
+        msg.chat.id,
+        "سلام\nبرای فعال‌سازی سرویس، شماره تماس خودت را ارسال کن.",
+        {
+          reply_markup: {
+            keyboard: [
+              [
+                {
+                  text: "📞 ارسال شماره تماس",
+                  request_contact: true
+                }
+              ]
+            ],
+            resize_keyboard: true
+          }
+        }
+      );
+    } else {
+      mainMenu(msg.chat.id);
+    }
   });
 
   bot.on("contact", async (msg) => {
     await findOrCreateUser(msg, msg.contact);
-
-    bot.sendMessage(
-      msg.chat.id,
-      "شماره ثبت شد.\nحالا منطقه را انتخاب کن:",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "📍 انتخاب منطقه", callback_data: "set_regions" }]
-          ]
-        }
-      }
-    );
+    mainMenu(msg.chat.id);
   });
 
-  bot.on("callback_query", async (query) => {
-    const chat_id = query.message.chat.id;
-    const data = query.data;
+  bot.on("message", async (msg) => {
+    const chat_id = msg.chat.id;
+    const text = msg.text;
 
-    if (data === "set_regions") {
+    if (!text || msg.contact) return;
+
+    // منوی اصلی
+    if (text === "📍 انتخاب منطقه") {
       bot.sendMessage(chat_id, "منطقه را انتخاب کن:", {
         reply_markup: {
           inline_keyboard: [
             [
               { text: "✔ منطقه ۱", callback_data: "region_1" },
-              { text: "✔ منطقه ۵", callback_data: "region_5" }
+              { text: "✔ منطقه ۲", callback_data: "region_2" }
             ],
             [
-              { text: "✔ منطقه ۱۰", callback_data: "region_10" },
-              { text: "✔ منطقه ۱۲", callback_data: "region_12" }
+              { text: "✔ منطقه ۳", callback_data: "region_3" },
+              { text: "✔ منطقه ۴", callback_data: "region_4" }
             ],
-            [{ text: "ادامه ➡️", callback_data: "next_street" }]
+            [
+              { text: "✔ منطقه ۵", callback_data: "region_5" },
+              { text: "✔ منطقه ۶", callback_data: "region_6" }
+            ],
+            [
+              { text: "✔ منطقه ۷", callback_data: "region_7" },
+              { text: "✔ منطقه ۸", callback_data: "region_8" }
+            ],
+            [
+              { text: "✔ منطقه ۹", callback_data: "region_9" },
+              { text: "✔ منطقه ۱۰", callback_data: "region_10" }
+            ],
+            [
+              { text: "✔ منطقه ۱۱", callback_data: "region_11" },
+              { text: "✔ منطقه ۱۲", callback_data: "region_12" }
+            ]
           ]
         }
       });
       return;
     }
 
+    if (text === "🏞️ انتخاب خیابان") {
+      bot.sendMessage(chat_id, "نام خیابان را تایپ کن:");
+      bot.once("message", async (streetMsg) => {
+        if (!streetMsg.text) return;
+        await updateUserFilters(chat_id, { street: streetMsg.text.trim() });
+        bot.sendMessage(chat_id, "خیابان ثبت شد.");
+        mainMenu(chat_id);
+      });
+      return;
+    }
+
+    if (text === "🏠 نوع ملک") {
+      bot.sendMessage(chat_id, "نوع ملک را انتخاب کن:", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "آپارتمان", callback_data: "estate_apartment" },
+              { text: "خانه", callback_data: "estate_house" }
+            ],
+            [
+              { text: "زمین", callback_data: "estate_land" },
+              { text: "مغازه", callback_data: "estate_shop" }
+            ],
+            [{ text: "دفتر کار", callback_data: "estate_office" }]
+          ]
+        }
+      });
+      return;
+    }
+
+    if (text === "📄 نوع آگهی") {
+      bot.sendMessage(chat_id, "نوع آگهی را انتخاب کن:", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "فروش", callback_data: "ad_sell" },
+              { text: "رهن کامل", callback_data: "ad_full" }
+            ],
+            [{ text: "رهن و اجاره", callback_data: "ad_rent" }]
+          ]
+        }
+      });
+      return;
+    }
+
+    if (text === "📏 متراژ") {
+      bot.sendMessage(chat_id, "حداقل متراژ را وارد کن (مثلاً ۸۰):");
+      bot.once("message", async (areaMsg) => {
+        if (!areaMsg.text) return;
+        await updateUserFilters(chat_id, { area: areaMsg.text.trim() });
+        bot.sendMessage(chat_id, "متراژ ثبت شد.");
+        mainMenu(chat_id);
+      });
+      return;
+    }
+
+    if (text === "💰 قیمت") {
+      bot.sendMessage(chat_id, "حداکثر قیمت را وارد کن (مثلاً ۳۰۰۰۰۰۰۰۰۰):");
+      bot.once("message", async (priceMsg) => {
+        if (!priceMsg.text) return;
+        await updateUserFilters(chat_id, { price: priceMsg.text.trim() });
+        bot.sendMessage(chat_id, "قیمت ثبت شد.");
+        mainMenu(chat_id);
+      });
+      return;
+    }
+
+    if (text === "🗓️ سال ساخت") {
+      bot.sendMessage(chat_id, "حداقل سال ساخت را وارد کن (مثلاً ۱۳۹۵):");
+      bot.once("message", async (yearMsg) => {
+        if (!yearMsg.text) return;
+        await updateUserFilters(chat_id, { year: yearMsg.text.trim() });
+        bot.sendMessage(chat_id, "سال ساخت ثبت شد.");
+        mainMenu(chat_id);
+      });
+      return;
+    }
+
+    if (text === "🚗 امکانات") {
+      bot.sendMessage(
+        chat_id,
+        "امکانات را انتخاب کن:",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "پارکینگ", callback_data: "feat_parking" },
+                { text: "انباری", callback_data: "feat_storage" }
+              ],
+              [
+                { text: "آسانسور", callback_data: "feat_elevator" },
+                { text: "بالکن", callback_data: "feat_balcony" }
+              ]
+            ]
+          }
+        }
+      );
+      return;
+    }
+
+    if (text === "🔍 جست‌وجوی نهایی") {
+      bot.sendMessage(
+        chat_id,
+        "آگهی‌دهنده را انتخاب کن:",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "👤 مالک", callback_data: "owner_owner" },
+                { text: "🏢 مشاور املاک", callback_data: "owner_agent" }
+              ],
+              [{ text: "🔍 شروع جستجو", callback_data: "start_search" }]
+            ]
+          }
+        }
+      );
+      return;
+    }
+  });
+
+  bot.on("callback_query", async (query) => {
+    const chat_id = query.message.chat.id;
+    const data = query.data;
+
+    // مناطق
     if (data.startsWith("region_")) {
       const regionName = "منطقه " + data.split("_")[1];
       const user = await User.findOne({ chat_id });
@@ -174,41 +341,65 @@ async function start() {
       return;
     }
 
-    if (data === "next_street") {
-      bot.sendMessage(chat_id, "نام خیابان را تایپ کن:");
-      bot.answerCallbackQuery(query.id);
-      return;
-    }
-
-    if (data.startsWith("type_")) {
-      const typeMap = {
-        type_apartment: "آپارتمان",
-        type_house: "خانه",
-        type_land: "زمین",
-        type_shop: "مغازه",
-        type_office: "دفتر کار"
+    // نوع ملک
+    if (data.startsWith("estate_")) {
+      const map = {
+        estate_apartment: "آپارتمان",
+        estate_house: "خانه",
+        estate_land: "زمین",
+        estate_shop: "مغازه",
+        estate_office: "دفتر کار"
       };
-      await updateUserFilters(chat_id, { type: typeMap[data] });
-
-      bot.sendMessage(
-        chat_id,
-        "آگهی‌دهنده را انتخاب کن:",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: "👤 مالک", callback_data: "owner_owner" },
-                { text: "🏢 مشاور املاک", callback_data: "owner_agent" }
-              ],
-              [{ text: "🔍 شروع جستجو", callback_data: "start_search" }]
-            ]
-          }
-        }
-      );
-      bot.answerCallbackQuery(query.id);
+      await updateUserFilters(chat_id, { estateType: map[data] });
+      bot.answerCallbackQuery(query.id, { text: `نوع ملک: ${map[data]}` });
       return;
     }
 
+    // نوع آگهی
+    if (data === "ad_sell") {
+      await updateUserFilters(chat_id, { adType: "فروش" });
+      bot.answerCallbackQuery(query.id, { text: "نوع آگهی: فروش" });
+      return;
+    }
+
+    if (data === "ad_full") {
+      await updateUserFilters(chat_id, { adType: "رهن کامل" });
+      bot.answerCallbackQuery(query.id, { text: "نوع آگهی: رهن کامل" });
+      return;
+    }
+
+    if (data === "ad_rent") {
+      await updateUserFilters(chat_id, { adType: "رهن و اجاره" });
+      bot.answerCallbackQuery(query.id, { text: "نوع آگهی: رهن و اجاره" });
+      return;
+    }
+
+    // امکانات
+    if (data.startsWith("feat_")) {
+      const featMap = {
+        feat_parking: "پارکینگ",
+        feat_storage: "انباری",
+        feat_elevator: "آسانسور",
+        feat_balcony: "بالکن"
+      };
+
+      const user = await User.findOne({ chat_id });
+      if (!user.filters.features) user.filters.features = [];
+
+      const feat = featMap[data];
+
+      if (!user.filters.features.includes(feat)) {
+        user.filters.features.push(feat);
+      } else {
+        user.filters.features = user.filters.features.filter((f) => f !== feat);
+      }
+
+      await user.save();
+      bot.answerCallbackQuery(query.id, { text: `امکانات: ${feat}` });
+      return;
+    }
+
+    // مالک / مشاور
     if (data === "owner_owner") {
       await updateUserFilters(chat_id, { ownerType: "مالک" });
       bot.answerCallbackQuery(query.id, { text: "مالک ثبت شد" });
@@ -221,174 +412,25 @@ async function start() {
       return;
     }
 
+    // شروع جستجو
     if (data === "start_search") {
       bot.answerCallbackQuery(query.id);
       bot.sendMessage(chat_id, "جستجو فعال شد. آگهی‌های جدید ارسال می‌شود.");
       return;
     }
-
-    if (data.startsWith("save_")) {
-      const postId = data.replace("save_", "");
-
-      const title = "آپارتمان 85 متری";
-      const price = "3,200,000,000";
-      const area = "85";
-      const region = "منطقه ۱۰";
-      const street = "نرگس";
-      const ownerType = "مالک";
-      const description = "آپارتمان نوساز، نرگس 23 پلاک 70، طبقه دوم...";
-      const mainImageUrl = "https://via.placeholder.com/600x400.png?text=Sample";
-
-      const caption = `
-📌 ذخیره آگهی
-
-🏠 ${title}
-💰 قیمت: ${price}
-📐 متراژ: ${area}
-📍 ${region}
-🛣 خیابان: ${street}
-👤 آگهی‌دهنده: ${ownerType}
-
-🔗 لینک آگهی:
-https://divar.ir/v/${postId}
-      `;
-
-      bot.sendPhoto(chat_id, mainImageUrl, {
-        caption,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "➕ ذخیره در پیام‌های ذخیره‌شده",
-                url: `https://t.me/${process.env.BOT_USERNAME}?start=save_${postId}`
-              }
-            ]
-          ]
-        }
-      });
-
-      bot.answerCallbackQuery(query.id, { text: "آگهی برای ذخیره ارسال شد" });
-      return;
-    }
   });
 
-  bot.on("message", async (msg) => {
-    if (msg.text && !msg.text.startsWith("/") && !msg.contact) {
-      await updateUserFilters(msg.chat.id, { street: msg.text.trim() });
-
-      bot.sendMessage(
-        msg.chat.id,
-        "نوع ملک را انتخاب کن:",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: "آپارتمان", callback_data: "type_apartment" },
-                { text: "خانه", callback_data: "type_house" }
-              ],
-              [
-                { text: "زمین", callback_data: "type_land" },
-                { text: "مغازه", callback_data: "type_shop" }
-              ],
-              [{ text: "دفتر کار", callback_data: "type_office" }]
-            ]
-          }
-        }
-      );
-    }
-  });
-
-  async function fetchDivarPostsForUser(user) {
-    const filters = user.filters;
-    if (!filters || !filters.street) return;
-
-    const keyword = filters.street;
-
-    try {
-      const res = await axios.get(
-        "https://api.divar.ir/v8/web-search/mashhad/real-estate",
-        {
-          headers: {
-            "User-Agent": "Android"
-          }
-        }
-      );
-
-      const posts = res.data.web_items || [];
-
-      for (const post of posts) {
-        const postId = post.token;
-        if (!postId) continue;
-
-        const exists = await SeenPost.findOne({ post_id: postId });
-        if (exists) continue;
-
-        await new SeenPost({ post_id: postId, created_at: new Date() }).save();
-
-        const description = post.description || "";
-        const title = post.title || "";
-        const location = post.location || "";
-        const neighborhood = post.neighborhood || "";
-        const district = post.district || "";
-
-        const match =
-          description.includes(keyword) ||
-          title.includes(keyword) ||
-          location.includes(keyword) ||
-          neighborhood.includes(keyword) ||
-          district.includes(keyword);
-
-        if (!match) continue;
-
-        const mainImageUrl = post.image_url || "https://via.placeholder.com/600x400";
-
-        const caption = `
-🏠 ${title}
-📍 ${district}
-🛣 ${filters.street}
-
-🔎 توضیحات:
-${description}
-
-🔗 لینک آگهی:
-https://divar.ir/v/${postId}
-        `;
-
-        bot.sendPhoto(user.chat_id, mainImageUrl, {
-          caption,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "📞 تماس امن",
-                  url: `https://divar.ir/v/${postId}`
-                }
-              ],
-              [
-                {
-                  text: "📌 ذخیره آگهی",
-                  callback_data: `save_${postId}`
-                }
-              ]
-            ]
-          }
-        });
-      }
-    } catch (e) {
-      console.log("خطای دیوار:", e.message);
-    }
-  }
-
+  // اینجا بعداً Listener دیوار را بر اساس filters کامل می‌کنیم
   setInterval(async () => {
     const users = await User.find({});
     const now = new Date();
 
     for (const user of users) {
       if (user.subscription && user.subscription.end > now) {
-        await fetchDivarPostsForUser(user);
+        // TODO: fetchDivarPostsForUser(user) با فیلترهای کامل
       }
     }
-  }, 2000);
+  }, 5000);
 }
 
 start();
