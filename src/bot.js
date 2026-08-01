@@ -6,7 +6,7 @@ app.get("/", (req, res) => {
 });
 
 app.listen(process.env.PORT || 3000, () => {
-  console.log("HTTP server is running on port " + (process.env.PORT || 3000));
+  console.log("HTTP server is running...");
 });
 
 const TelegramBot = require("node-telegram-bot-api");
@@ -32,12 +32,6 @@ async function start() {
       name: String,
       phone: String,
       created_at: Date,
-      subscription: {
-        plan: String,
-        start: Date,
-        end: Date,
-        autoRenew: Boolean
-      },
       filters: {
         type: Object,
         default: {
@@ -55,14 +49,6 @@ async function start() {
     })
   );
 
-  const SeenPost = mongoose.model(
-    "SeenPost",
-    new mongoose.Schema({
-      post_id: String,
-      created_at: Date
-    })
-  );
-
   async function findOrCreateUser(msg, contact) {
     const chat_id = msg.chat.id;
     let user = await User.findOne({ chat_id });
@@ -74,12 +60,6 @@ async function start() {
         name: contact ? contact.first_name : msg.from.first_name,
         phone: contact ? contact.phone_number : null,
         created_at: new Date(),
-        subscription: {
-          plan: "monthly",
-          start: new Date(),
-          end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          autoRenew: true
-        },
         filters: {
           regions: [],
           street: "",
@@ -107,7 +87,7 @@ async function start() {
   function mainMenu(chat_id) {
     bot.sendMessage(
       chat_id,
-      "سلام! لطفاً یکی از گزینه‌های زیر را انتخاب کن:",
+      "لطفاً یکی از گزینه‌های زیر را انتخاب کن:",
       {
         reply_markup: {
           keyboard: [
@@ -119,7 +99,8 @@ async function start() {
             [{ text: "💰 قیمت" }],
             [{ text: "🗓️ سال ساخت" }],
             [{ text: "🚗 امکانات" }],
-            [{ text: "🔍 جست‌وجوی نهایی" }]
+            [{ text: "🧍‍♂️ آگهی‌دهنده" }],
+            [{ text: "🔍 جستجوی نهایی" }]
           ],
           resize_keyboard: true
         }
@@ -133,7 +114,7 @@ async function start() {
     if (!user.phone) {
       bot.sendMessage(
         msg.chat.id,
-        "سلام\nبرای فعال‌سازی سرویس، شماره تماس خودت را ارسال کن.",
+        "سلام سعید!\nبرای فعال‌سازی سرویس، شماره تماس خودت را ارسال کن.",
         {
           reply_markup: {
             keyboard: [
@@ -148,13 +129,19 @@ async function start() {
           }
         }
       );
-    } else {
-      mainMenu(msg.chat.id);
+      return;
     }
+
+    mainMenu(msg.chat.id);
   });
 
   bot.on("contact", async (msg) => {
-    await findOrCreateUser(msg, msg.contact);
+    const user = await findOrCreateUser(msg, msg.contact);
+
+    user.phone = msg.contact.phone_number;
+    await user.save();
+
+    bot.sendMessage(msg.chat.id, "شماره ثبت شد.");
     mainMenu(msg.chat.id);
   });
 
@@ -164,7 +151,14 @@ async function start() {
 
     if (!text || msg.contact) return;
 
-    // منوی اصلی
+    const user = await User.findOne({ chat_id });
+    if (!user) return;
+
+    if (!user.phone) {
+      bot.sendMessage(chat_id, "لطفاً شماره تماس را ارسال کن.");
+      return;
+    }
+
     if (text === "📍 انتخاب منطقه") {
       bot.sendMessage(chat_id, "منطقه را انتخاب کن:", {
         reply_markup: {
@@ -202,7 +196,6 @@ async function start() {
     if (text === "🏞️ انتخاب خیابان") {
       bot.sendMessage(chat_id, "نام خیابان را تایپ کن:");
       bot.once("message", async (streetMsg) => {
-        if (!streetMsg.text) return;
         await updateUserFilters(chat_id, { street: streetMsg.text.trim() });
         bot.sendMessage(chat_id, "خیابان ثبت شد.");
         mainMenu(chat_id);
@@ -245,9 +238,8 @@ async function start() {
     }
 
     if (text === "📏 متراژ") {
-      bot.sendMessage(chat_id, "حداقل متراژ را وارد کن (مثلاً ۸۰):");
+      bot.sendMessage(chat_id, "حداقل متراژ را وارد کن:");
       bot.once("message", async (areaMsg) => {
-        if (!areaMsg.text) return;
         await updateUserFilters(chat_id, { area: areaMsg.text.trim() });
         bot.sendMessage(chat_id, "متراژ ثبت شد.");
         mainMenu(chat_id);
@@ -256,9 +248,8 @@ async function start() {
     }
 
     if (text === "💰 قیمت") {
-      bot.sendMessage(chat_id, "حداکثر قیمت را وارد کن (مثلاً ۳۰۰۰۰۰۰۰۰۰):");
+      bot.sendMessage(chat_id, "حداکثر قیمت را وارد کن:");
       bot.once("message", async (priceMsg) => {
-        if (!priceMsg.text) return;
         await updateUserFilters(chat_id, { price: priceMsg.text.trim() });
         bot.sendMessage(chat_id, "قیمت ثبت شد.");
         mainMenu(chat_id);
@@ -267,9 +258,8 @@ async function start() {
     }
 
     if (text === "🗓️ سال ساخت") {
-      bot.sendMessage(chat_id, "حداقل سال ساخت را وارد کن (مثلاً ۱۳۹۵):");
+      bot.sendMessage(chat_id, "حداقل سال ساخت را وارد کن:");
       bot.once("message", async (yearMsg) => {
-        if (!yearMsg.text) return;
         await updateUserFilters(chat_id, { year: yearMsg.text.trim() });
         bot.sendMessage(chat_id, "سال ساخت ثبت شد.");
         mainMenu(chat_id);
@@ -278,38 +268,56 @@ async function start() {
     }
 
     if (text === "🚗 امکانات") {
-      bot.sendMessage(
-        chat_id,
-        "امکانات را انتخاب کن:",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: "پارکینگ", callback_data: "feat_parking" },
-                { text: "انباری", callback_data: "feat_storage" }
-              ],
-              [
-                { text: "آسانسور", callback_data: "feat_elevator" },
-                { text: "بالکن", callback_data: "feat_balcony" }
-              ]
-            ]
-          }
+      bot.sendMessage(chat_id, "امکانات را انتخاب کن:", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "پارکینگ", callback_data: "feat_parking" },
+              { text: "انباری", callback_data: "feat_storage" }
+            ],
+            [
+              { text: "آسانسور", callback_data: "feat_elevator" },
+              { text: "بالکن/تراس", callback_data: "feat_balcony" }
+            ],
+            [{ text: "هیچکدام", callback_data: "feat_none" }]
+          ]
         }
-      );
+      });
       return;
     }
 
-    if (text === "🔍 جست‌وجوی نهایی") {
+    if (text === "🧍‍♂️ آگهی‌دهنده") {
+      bot.sendMessage(chat_id, "آگهی‌دهنده را انتخاب کن:", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "مالک", callback_data: "owner_owner" },
+              { text: "مشاور املاک", callback_data: "owner_agent" }
+            ]
+          ]
+        }
+      });
+      return;
+    }
+
+    if (text === "🔍 جستجوی نهایی") {
+      const f = user.filters;
+
       bot.sendMessage(
         chat_id,
-        "آگهی‌دهنده را انتخاب کن:",
+        `خلاصهٔ فیلترهای شما:\n
+📍 مناطق: ${f.regions.join(", ") || "—"}
+🏞️ خیابان: ${f.street || "—"}
+🏠 نوع ملک: ${f.estateType || "—"}
+📄 نوع آگهی: ${f.adType || "—"}
+📏 متراژ: ${f.area || "—"}
+💰 قیمت: ${f.price || "—"}
+🗓️ سال ساخت: ${f.year || "—"}
+🚗 امکانات: ${f.features.join(", ") || "—"}
+🧍‍♂️ آگهی‌دهنده: ${f.ownerType || "—"}`,
         {
           reply_markup: {
             inline_keyboard: [
-              [
-                { text: "👤 مالک", callback_data: "owner_owner" },
-                { text: "🏢 مشاور املاک", callback_data: "owner_agent" }
-              ],
               [{ text: "🔍 شروع جستجو", callback_data: "start_search" }]
             ]
           }
@@ -323,12 +331,11 @@ async function start() {
     const chat_id = query.message.chat.id;
     const data = query.data;
 
-    // مناطق
+    const user = await User.findOne({ chat_id });
+    if (!user) return;
+
     if (data.startsWith("region_")) {
       const regionName = "منطقه " + data.split("_")[1];
-      const user = await User.findOne({ chat_id });
-
-      if (!user.filters.regions) user.filters.regions = [];
 
       if (!user.filters.regions.includes(regionName)) {
         user.filters.regions.push(regionName);
@@ -341,7 +348,6 @@ async function start() {
       return;
     }
 
-    // نوع ملک
     if (data.startsWith("estate_")) {
       const map = {
         estate_apartment: "آپارتمان",
@@ -355,7 +361,6 @@ async function start() {
       return;
     }
 
-    // نوع آگهی
     if (data === "ad_sell") {
       await updateUserFilters(chat_id, { adType: "فروش" });
       bot.answerCallbackQuery(query.id, { text: "نوع آگهی: فروش" });
@@ -374,17 +379,19 @@ async function start() {
       return;
     }
 
-    // امکانات
     if (data.startsWith("feat_")) {
+      if (data === "feat_none") {
+        await updateUserFilters(chat_id, { features: [] });
+        bot.answerCallbackQuery(query.id, { text: "بدون امکانات" });
+        return;
+      }
+
       const featMap = {
         feat_parking: "پارکینگ",
         feat_storage: "انباری",
         feat_elevator: "آسانسور",
-        feat_balcony: "بالکن"
+        feat_balcony: "بالکن/تراس"
       };
-
-      const user = await User.findOne({ chat_id });
-      if (!user.filters.features) user.filters.features = [];
 
       const feat = featMap[data];
 
@@ -399,7 +406,6 @@ async function start() {
       return;
     }
 
-    // مالک / مشاور
     if (data === "owner_owner") {
       await updateUserFilters(chat_id, { ownerType: "مالک" });
       bot.answerCallbackQuery(query.id, { text: "مالک ثبت شد" });
@@ -412,31 +418,23 @@ async function start() {
       return;
     }
 
-    // شروع جستجو
     if (data === "start_search") {
       bot.answerCallbackQuery(query.id);
-      bot.sendMessage(chat_id, "جستجو فعال شد. آگهی‌های جدید ارسال می‌شود.");
+      bot.sendMessage(chat_id, "جستجو فعال شد. Listener دقیق آماده اتصال است.");
       return;
     }
   });
-
-  // اینجا بعداً Listener دیوار را بر اساس filters کامل می‌کنیم
-  setInterval(async () => {
-    const users = await User.find({});
-    const now = new Date();
-
-    for (const user of users) {
-      if (user.subscription && user.subscription.end > now) {
-        // TODO: fetchDivarPostsForUser(user) با فیلترهای کامل
-      }
-    }
-  }, 5000);
 }
 
 start();
+// ===============================
+// LISTENER دقیق دیوار
+// ===============================
+
 async function fetchDivarPostsForUser(user) {
   try {
     const url = `https://api.divar.ir/v8/web-search/mashhad/real-estate`;
+
     const response = await axios.post(url, {
       query: user.filters.estateType || "",
       city: "mashhad"
@@ -460,18 +458,30 @@ async function fetchDivarPostsForUser(user) {
       const category = post.data.category || "";
       const business = post.data.business_type || "";
 
+      // ------------------------------
+      // فیلتر منطقه
+      // ------------------------------
       if (user.filters.regions.length > 0) {
         if (!user.filters.regions.includes(district)) continue;
       }
 
+      // ------------------------------
+      // فیلتر خیابان
+      // ------------------------------
       if (user.filters.street) {
         if (!desc.includes(user.filters.street)) continue;
       }
 
+      // ------------------------------
+      // فیلتر نوع ملک
+      // ------------------------------
       if (user.filters.estateType) {
         if (!category.includes(user.filters.estateType)) continue;
       }
 
+      // ------------------------------
+      // فیلتر نوع آگهی
+      // ------------------------------
       if (user.filters.adType === "فروش") {
         if (!desc.includes("فروش")) continue;
       }
@@ -484,18 +494,30 @@ async function fetchDivarPostsForUser(user) {
         if (!desc.includes("اجاره")) continue;
       }
 
+      // ------------------------------
+      // فیلتر متراژ
+      // ------------------------------
       if (user.filters.area) {
         if (parseInt(area) < parseInt(user.filters.area)) continue;
       }
 
+      // ------------------------------
+      // فیلتر قیمت
+      // ------------------------------
       if (user.filters.price) {
         if (parseInt(price) > parseInt(user.filters.price)) continue;
       }
 
+      // ------------------------------
+      // فیلتر سال ساخت
+      // ------------------------------
       if (user.filters.year) {
         if (parseInt(year) < parseInt(user.filters.year)) continue;
       }
 
+      // ------------------------------
+      // فیلتر امکانات
+      // ------------------------------
       if (user.filters.features.length > 0) {
         const features = user.filters.features;
 
@@ -507,9 +529,12 @@ async function fetchDivarPostsForUser(user) {
         if (features.includes("پارکینگ") && !hasParking) continue;
         if (features.includes("انباری") && !hasStorage) continue;
         if (features.includes("آسانسور") && !hasElevator) continue;
-        if (features.includes("بالکن") && !hasBalcony) continue;
+        if (features.includes("بالکن/تراس") && !hasBalcony) continue;
       }
 
+      // ------------------------------
+      // فیلتر مالک / مشاور
+      // ------------------------------
       if (user.filters.ownerType === "مالک") {
         if (business !== "personal") continue;
       }
@@ -518,11 +543,17 @@ async function fetchDivarPostsForUser(user) {
         if (business !== "business") continue;
       }
 
+      // ------------------------------
+      // ذخیره آگهی جدید
+      // ------------------------------
       await new SeenPost({ post_id, created_at: new Date() }).save();
 
+      // ------------------------------
+      // ارسال آگهی
+      // ------------------------------
       bot.sendMessage(
         user.chat_id,
-        `🏠 *${title}*\n\n📍 منطقه: ${district}\n📏 متراژ: ${area}\n💰 قیمت: ${price}\n🗓 سال ساخت: ${year}\n\n${desc}\n\nلینک آگهی:\nhttps://divar.ir/v/${token}`,
+        `🏠 *${title}*\n\n📍 منطقه: ${district}\n📏 متراژ: ${area}\n💰 قیمت: ${price}\n🗓 سال ساخت: ${year}\n\n${desc}\n\n🔗 لینک آگهی:\nhttps://divar.ir/v/${token}`,
         { parse_mode: "Markdown" }
       );
     }
@@ -531,6 +562,7 @@ async function fetchDivarPostsForUser(user) {
   }
 }
 
+// اجرای Listener هر ۵ ثانیه
 setInterval(async () => {
   const users = await User.find({});
   for (const user of users) {
