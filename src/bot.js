@@ -43,7 +43,8 @@ async function start() {
           price: "",
           year: "",
           features: [],
-          ownerType: ""
+          ownerType: "",
+          searchActive: false
         }
       }
     })
@@ -77,7 +78,8 @@ async function start() {
           price: "",
           year: "",
           features: [],
-          ownerType: ""
+          ownerType: "",
+          searchActive: false
         }
       });
       await user.save();
@@ -326,7 +328,8 @@ async function start() {
         {
           reply_markup: {
             inline_keyboard: [
-              [{ text: "🔍 شروع جستجو", callback_data: "start_search" }]
+              [{ text: "🔍 شروع جستجو", callback_data: "start_search" }],
+              [{ text: "📄 لیست آگهی‌های یک ماه اخیر", callback_data: "list_month" }]
             ]
           }
         }
@@ -420,24 +423,34 @@ async function start() {
     if (data === "owner_owner") {
       await updateUserFilters(chat_id, { ownerType: "مالک" });
       bot.answerCallbackQuery(query.id, { text: "مالک ثبت شد" });
+      bot.sendMessage(chat_id, "فیلترها کامل شد. منتظر آگهی باشید.");
       return;
     }
 
     if (data === "owner_agent") {
       await updateUserFilters(chat_id, { ownerType: "مشاور املاک" });
       bot.answerCallbackQuery(query.id, { text: "مشاور املاک ثبت شد" });
+      bot.sendMessage(chat_id, "فیلترها کامل شد. منتظر آگهی باشید.");
       return;
     }
 
     if (data === "start_search") {
+      await updateUserFilters(chat_id, { searchActive: true });
       bot.answerCallbackQuery(query.id);
-      bot.sendMessage(chat_id, "جستجو فعال شد. Listener دقیق در حال کار است.");
+      bot.sendMessage(chat_id, "جستجو فعال شد. منتظر آگهی‌های جدید مطابق فیلتر خود باشید.");
+      return;
+    }
+
+    if (data === "list_month") {
+      bot.answerCallbackQuery(query.id);
+      bot.sendMessage(chat_id, "در حال دریافت لیست آگهی‌های یک ماه اخیر مطابق فیلتر شما...");
+      await fetchDivarHistoryForUser(user, bot);
       return;
     }
   });
 
   // ===============================
-  // LISTENER دقیق دیوار (داخل start)
+  // توابع کمکی و Listener
   // ===============================
 
   function normalizePrice(priceText) {
@@ -450,7 +463,98 @@ async function start() {
     return parseInt(txt);
   }
 
-  async function fetchDivarPostsForUser(user) {
+  async function applyFiltersToPost(post, user) {
+    const title = post.data.title || "";
+    const desc = post.data.description || "";
+    const district = post.data.district || "";
+    const price = post.data.price || "";
+    const area = post.data.area || "";
+    const year = post.data.year || "";
+    const category = post.data.category || "";
+    const business = post.data.business_type || "";
+
+    // منطقه
+    if (user.filters.regions.length > 0) {
+      if (!user.filters.regions.includes(district)) return null;
+    }
+
+    // خیابان
+    if (user.filters.street) {
+      if (!desc.includes(user.filters.street)) return null;
+    }
+
+    // نوع ملک
+    if (user.filters.estateType) {
+      if (!category.includes(user.filters.estateType)) return null;
+    }
+
+    // نوع آگهی
+    if (user.filters.adType === "فروش") {
+      if (!desc.includes("فروش")) return null;
+    }
+
+    if (user.filters.adType === "رهن کامل") {
+      if (!desc.includes("رهن کامل")) return null;
+    }
+
+    if (user.filters.adType === "رهن و اجاره") {
+      if (!desc.includes("اجاره")) return null;
+    }
+
+    // متراژ
+    if (user.filters.area) {
+      if (parseInt(area) < parseInt(user.filters.area)) return null;
+    }
+
+    // قیمت
+    if (user.filters.price) {
+      const normalizedPrice = normalizePrice(price);
+      if (normalizedPrice > parseInt(user.filters.price)) return null;
+    }
+
+    // سال ساخت
+    if (user.filters.year) {
+      if (parseInt(year) < parseInt(user.filters.year)) return null;
+    }
+
+    // امکانات
+    if (user.filters.features.length > 0) {
+      const features = user.filters.features;
+
+      const hasParking = desc.includes("پارکینگ");
+      const hasStorage = desc.includes("انباری");
+      const hasElevator = desc.includes("آسانسور");
+      const hasBalcony = desc.includes("بالکن") || desc.includes("تراس");
+
+      if (features.includes("پارکینگ") && !hasParking) return null;
+      if (features.includes("انباری") && !hasStorage) return null;
+      if (features.includes("آسانسور") && !hasElevator) return null;
+      if (features.includes("بالکن/تراس") && !hasBalcony) return null;
+    }
+
+    // مالک / مشاور
+    if (user.filters.ownerType === "مالک") {
+      if (business !== "personal") return null;
+    }
+
+    if (user.filters.ownerType === "مشاور املاک") {
+      if (business !== "business") return null;
+    }
+
+    return {
+      title,
+      desc,
+      district,
+      price,
+      area,
+      year,
+      token: post.data.token
+    };
+  }
+
+  async function fetchDivarPostsForUser(user, botInstance) {
+    if (!user.filters.searchActive) return;
+
     try {
       const url = `https://api.divar.ir/v8/web-search/mashhad/real-estate`;
 
@@ -468,88 +572,14 @@ async function start() {
         const seen = await SeenPost.findOne({ post_id });
         if (seen) continue;
 
-        const title = post.data.title || "";
-        const desc = post.data.description || "";
-        const district = post.data.district || "";
-        const price = post.data.price || "";
-        const area = post.data.area || "";
-        const year = post.data.year || "";
-        const category = post.data.category || "";
-        const business = post.data.business_type || "";
-
-        // فیلتر منطقه
-        if (user.filters.regions.length > 0) {
-          if (!user.filters.regions.includes(district)) continue;
-        }
-
-        // فیلتر خیابان
-        if (user.filters.street) {
-          if (!desc.includes(user.filters.street)) continue;
-        }
-
-        // فیلتر نوع ملک
-        if (user.filters.estateType) {
-          if (!category.includes(user.filters.estateType)) continue;
-        }
-
-        // فیلتر نوع آگهی
-        if (user.filters.adType === "فروش") {
-          if (!desc.includes("فروش")) continue;
-        }
-
-        if (user.filters.adType === "رهن کامل") {
-          if (!desc.includes("رهن کامل")) continue;
-        }
-
-        if (user.filters.adType === "رهن و اجاره") {
-          if (!desc.includes("اجاره")) continue;
-        }
-
-        // فیلتر متراژ
-        if (user.filters.area) {
-          if (parseInt(area) < parseInt(user.filters.area)) continue;
-        }
-
-        // فیلتر قیمت
-        if (user.filters.price) {
-          const normalizedPrice = normalizePrice(price);
-          if (normalizedPrice > parseInt(user.filters.price)) continue;
-        }
-
-        // فیلتر سال ساخت
-        if (user.filters.year) {
-          if (parseInt(year) < parseInt(user.filters.year)) continue;
-        }
-
-        // فیلتر امکانات
-        if (user.filters.features.length > 0) {
-          const features = user.filters.features;
-
-          const hasParking = desc.includes("پارکینگ");
-          const hasStorage = desc.includes("انباری");
-          const hasElevator = desc.includes("آسانسور");
-          const hasBalcony = desc.includes("بالکن") || desc.includes("تراس");
-
-          if (features.includes("پارکینگ") && !hasParking) continue;
-          if (features.includes("انباری") && !hasStorage) continue;
-          if (features.includes("آسانسور") && !hasElevator) continue;
-          if (features.includes("بالکن/تراس") && !hasBalcony) continue;
-        }
-
-        // فیلتر مالک / مشاور
-        if (user.filters.ownerType === "مالک") {
-          if (business !== "personal") continue;
-        }
-
-        if (user.filters.ownerType === "مشاور املاک") {
-          if (business !== "business") continue;
-        }
+        const filtered = await applyFiltersToPost(post, user);
+        if (!filtered) continue;
 
         await new SeenPost({ post_id, created_at: new Date() }).save();
 
-        bot.sendMessage(
+        botInstance.sendMessage(
           user.chat_id,
-          `🏠 *${title}*\n\n📍 منطقه: ${district}\n📏 متراژ: ${area}\n💰 قیمت: ${price}\n🗓 سال ساخت: ${year}\n\n${desc}\n\n🔗 لینک آگهی:\nhttps://divar.ir/v/${token}`,
+          `🏠 *${filtered.title}*\n\n📍 منطقه: ${filtered.district}\n📏 متراژ: ${filtered.area}\n💰 قیمت: ${filtered.price}\n🗓 سال ساخت: ${filtered.year}\n\n${filtered.desc}\n\n🔗 لینک آگهی:\nhttps://divar.ir/v/${filtered.token}`,
           { parse_mode: "Markdown" }
         );
       }
@@ -558,12 +588,54 @@ async function start() {
     }
   }
 
+  async function fetchDivarHistoryForUser(user, botInstance) {
+    try {
+      const url = `https://api.divar.ir/v8/web-search/mashhad/real-estate`;
+
+      const response = await axios.post(url, {
+        query: user.filters.estateType || "",
+        city: "mashhad"
+      });
+
+      const posts = response.data.widget_list.slice(0, 50);
+
+      let count = 0;
+
+      for (const post of posts) {
+        const filtered = await applyFiltersToPost(post, user);
+        if (!filtered) continue;
+
+        count++;
+
+        botInstance.sendMessage(
+          user.chat_id,
+          `📄 آگهی ${count}:\n\n🏠 *${filtered.title}*\n\n📍 منطقه: ${filtered.district}\n📏 متراژ: ${filtered.area}\n💰 قیمت: ${filtered.price}\n🗓 سال ساخت: ${filtered.year}\n\n${filtered.desc}\n\n🔗 لینک آگهی:\nhttps://divar.ir/v/${filtered.token}`,
+          { parse_mode: "Markdown" }
+        );
+      }
+
+      if (count === 0) {
+        botInstance.sendMessage(
+          user.chat_id,
+          "هیچ آگهی مطابق فیلتر شما در یک ماه اخیر پیدا نشد."
+        );
+      } else {
+        botInstance.sendMessage(
+          user.chat_id,
+          `لیست آگهی‌های یک ماه اخیر مطابق فیلتر شما ارسال شد. (${count} آگهی)`
+        );
+      }
+    } catch (err) {
+      console.log("Error fetching Divar history:", err.message);
+    }
+  }
+
   setInterval(async () => {
     const users = await User.find({});
     for (const user of users) {
-      fetchDivarPostsForUser(user);
+      await fetchDivarPostsForUser(user, bot);
     }
-  }, 5000);
+  }, 10000); // هر ۱۰ ثانیه، سبک‌تر و مناسب چند کاربر
 }
 
 start();
