@@ -91,6 +91,10 @@ async function start() {
     const user = await User.findOne({ chat_id });
     if (!user) return;
     user.filters = { ...user.filters, ...newFilters };
+
+    if (!Array.isArray(user.filters.features)) user.filters.features = [];
+    if (!Array.isArray(user.filters.regions)) user.filters.regions = [];
+
     await user.save();
   }
 
@@ -124,7 +128,7 @@ async function start() {
     if (!user.phone) {
       bot.sendMessage(
         msg.chat.id,
-        "سلام سعید!\nبرای فعال‌سازی سرویس، شماره تماس خودت را ارسال کن.",
+        "سلام!\nبرای فعال‌سازی سرویس، شماره تماس خودت را ارسال کن.",
         {
           reply_markup: {
             keyboard: [
@@ -174,28 +178,28 @@ async function start() {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "✔ منطقه ۱", callback_data: "region_1" },
-              { text: "✔ منطقه ۲", callback_data: "region_2" }
+              { text: "✔ منطقه ۱", callback_data: "region_منطقه ۱" },
+              { text: "✔ منطقه ۲", callback_data: "region_منطقه ۲" }
             ],
             [
-              { text: "✔ منطقه ۳", callback_data: "region_3" },
-              { text: "✔ منطقه ۴", callback_data: "region_4" }
+              { text: "✔ منطقه ۳", callback_data: "region_منطقه ۳" },
+              { text: "✔ منطقه ۴", callback_data: "region_منطقه ۴" }
             ],
             [
-              { text: "✔ منطقه ۵", callback_data: "region_5" },
-              { text: "✔ منطقه ۶", callback_data: "region_6" }
+              { text: "✔ منطقه ۵", callback_data: "region_منطقه ۵" },
+              { text: "✔ منطقه ۶", callback_data: "region_منطقه ۶" }
             ],
             [
-              { text: "✔ منطقه ۷", callback_data: "region_7" },
-              { text: "✔ منطقه ۸", callback_data: "region_8" }
+              { text: "✔ منطقه ۷", callback_data: "region_منطقه ۷" },
+              { text: "✔ منطقه ۸", callback_data: "region_منطقه ۸" }
             ],
             [
-              { text: "✔ منطقه ۹", callback_data: "region_9" },
-              { text: "✔ منطقه ۱۰", callback_data: "region_10" }
+              { text: "✔ منطقه ۹", callback_data: "region_منطقه ۹" },
+              { text: "✔ منطقه ۱۰", callback_data: "region_منطقه ۱۰" }
             ],
             [
-              { text: "✔ منطقه ۱۱", callback_data: "region_11" },
-              { text: "✔ منطقه ۱۲", callback_data: "region_12" }
+              { text: "✔ منطقه ۱۱", callback_data: "region_منطقه ۱۱" },
+              { text: "✔ منطقه ۱۲", callback_data: "region_منطقه ۱۲" }
             ]
           ]
         }
@@ -218,14 +222,14 @@ async function start() {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "آپارتمان", callback_data: "estate_apartment" },
-              { text: "خانه", callback_data: "estate_house" }
+              { text: "آپارتمان", callback_data: "estate_آپارتمان" },
+              { text: "خانه", callback_data: "estate_خانه" }
             ],
             [
-              { text: "زمین", callback_data: "estate_land" },
-              { text: "مغازه", callback_data: "estate_shop" }
+              { text: "زمین", callback_data: "estate_زمین" },
+              { text: "مغازه", callback_data: "estate_مغازه" }
             ],
-            [{ text: "دفتر کار", callback_data: "estate_office" }]
+            [{ text: "دفتر کار", callback_data: "estate_دفتر کار" }]
           ]
         }
       });
@@ -237,10 +241,10 @@ async function start() {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "فروش", callback_data: "ad_sell" },
-              { text: "رهن کامل", callback_data: "ad_full" }
+              { text: "فروش", callback_data: "ad_فروش" },
+              { text: "رهن کامل", callback_data: "ad_رهن کامل" }
             ],
-            [{ text: "رهن و اجاره", callback_data: "ad_rent" }]
+            [{ text: "رهن و اجاره", callback_data: "ad_رهن و اجاره" }]
           ]
         }
       });
@@ -282,14 +286,14 @@ async function start() {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "پارکینگ", callback_data: "feat_parking" },
-              { text: "انباری", callback_data: "feat_storage" }
+              { text: "پارکینگ", callback_data: "feat_پارکینگ" },
+              { text: "انباری", callback_data: "feat_انباری" }
             ],
             [
-              { text: "آسانسور", callback_data: "feat_elevator" },
-              { text: "بالکن/تراس", callback_data: "feat_balcony" }
+              { text: "آسانسور", callback_data: "feat_آسانسور" },
+              { text: "بالکن/تراس", callback_data: "feat_بالکن/تراس" }
             ],
-            [{ text: "هیچکدام", callback_data: "feat_none" }]
+            [{ text: "هیچکدام", callback_data: "feat_هیچکدام" }]
           ]
         }
       });
@@ -301,8 +305,8 @@ async function start() {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "مالک", callback_data: "owner_owner" },
-              { text: "مشاور املاک", callback_data: "owner_agent" }
+              { text: "مالک", callback_data: "owner_مالک" },
+              { text: "مشاور املاک", callback_data: "owner_مشاور املاک" }
             ]
           ]
         }
@@ -311,19 +315,22 @@ async function start() {
     }
 
     if (text === "🔍 جستجوی نهایی") {
-      const f = user.filters;
+      const f = user.filters || {};
+
+      if (!Array.isArray(f.features)) f.features = [];
+      if (!Array.isArray(f.regions)) f.regions = [];
 
       bot.sendMessage(
         chat_id,
         `خلاصهٔ فیلترهای شما:\n
-📍 مناطق: ${f.regions.join(", ") || "—"}
+📍 مناطق: ${f.regions.length ? f.regions.join(", ") : "—"}
 🏞️ خیابان: ${f.street || "—"}
 🏠 نوع ملک: ${f.estateType || "—"}
 📄 نوع آگهی: ${f.adType || "—"}
 📏 متراژ: ${f.area || "—"}
 💰 قیمت: ${f.price || "—"}
 🗓️ سال ساخت: ${f.year || "—"}
-🚗 امکانات: ${f.features.join(", ") || "—"}
+🚗 امکانات: ${f.features.length ? f.features.join(", ") : "—"}
 🧍‍♂️ آگهی‌دهنده: ${f.ownerType || "—"}`,
         {
           reply_markup: {
@@ -345,63 +352,58 @@ async function start() {
     const user = await User.findOne({ chat_id });
     if (!user) return;
 
+    if (!user.filters) {
+      user.filters = {
+        regions: [],
+        street: "",
+        estateType: "",
+        adType: "",
+        area: "",
+        price: "",
+        year: "",
+        features: [],
+        ownerType: "",
+        searchActive: false
+      };
+      await user.save();
+    }
+
+    if (!Array.isArray(user.filters.features)) user.filters.features = [];
+    if (!Array.isArray(user.filters.regions)) user.filters.regions = [];
+
     if (data.startsWith("region_")) {
-      const regionName = "منطقه " + data.split("_")[1];
+      const regionName = data.replace("region_", "");
 
       if (!user.filters.regions.includes(regionName)) {
         user.filters.regions.push(regionName);
+        await user.save();
+        bot.answerCallbackQuery(query.id, { text: `${regionName} اضافه شد` });
       } else {
         user.filters.regions = user.filters.regions.filter((r) => r !== regionName);
+        await user.save();
+        bot.answerCallbackQuery(query.id, { text: `${regionName} حذف شد` });
       }
-
-      await user.save();
-      bot.answerCallbackQuery(query.id, { text: `${regionName} ثبت شد` });
       return;
     }
 
     if (data.startsWith("estate_")) {
-      const map = {
-        estate_apartment: "آپارتمان",
-        estate_house: "خانه",
-        estate_land: "زمین",
-        estate_shop: "مغازه",
-        estate_office: "دفتر کار"
-      };
-      await updateUserFilters(chat_id, { estateType: map[data] });
-      bot.answerCallbackQuery(query.id, { text: `نوع ملک: ${map[data]}` });
+      const estateType = data.replace("estate_", "");
+      await updateUserFilters(chat_id, { estateType });
+      bot.answerCallbackQuery(query.id, { text: `نوع ملک: ${estateType}` });
       return;
     }
 
-    if (data === "ad_sell") {
-      await updateUserFilters(chat_id, { adType: "فروش" });
-      bot.answerCallbackQuery(query.id, { text: "نوع آگهی: فروش" });
-      return;
-    }
-
-    if (data === "ad_full") {
-      await updateUserFilters(chat_id, { adType: "رهن کامل" });
-      bot.answerCallbackQuery(query.id, { text: "نوع آگهی: رهن کامل" });
-      return;
-    }
-
-    if (data === "ad_rent") {
-      await updateUserFilters(chat_id, { adType: "رهن و اجاره" });
-      bot.answerCallbackQuery(query.id, { text: "نوع آگهی: رهن و اجاره" });
+    if (data.startsWith("ad_")) {
+      const adType = data.replace("ad_", "");
+      await updateUserFilters(chat_id, { adType });
+      bot.answerCallbackQuery(query.id, { text: `نوع آگهی: ${adType}` });
       return;
     }
 
     if (data.startsWith("feat_")) {
-      const featMap = {
-        feat_parking: "پارکینگ",
-        feat_storage: "انباری",
-        feat_elevator: "آسانسور",
-        feat_balcony: "بالکن/تراس",
-        feat_none: "هیچکدام"
-      };
+      const feat = data.replace("feat_", "");
 
-      const feat = featMap[data];
-
-      if (data === "feat_none") {
+      if (feat === "هیچکدام") {
         user.filters.features = [];
         await user.save();
         bot.answerCallbackQuery(query.id, { text: "امکانات حذف شد" });
@@ -410,28 +412,21 @@ async function start() {
 
       if (!user.filters.features.includes(feat)) {
         user.filters.features.push(feat);
+        await user.save();
         bot.answerCallbackQuery(query.id, { text: `${feat} اضافه شد` });
       } else {
         user.filters.features = user.filters.features.filter((f) => f !== feat);
+        await user.save();
         bot.answerCallbackQuery(query.id, { text: `${feat} حذف شد` });
       }
-
-      await user.save();
       return;
     }
 
-    if (data === "owner_owner") {
-      await updateUserFilters(chat_id, { ownerType: "مالک" });
-      bot.answerCallbackQuery(query.id, { text: "مالک ثبت شد" });
-      bot.sendMessage(chat_id, "فیلترها کامل شد. منتظر آگهی باشید.");
-      return;
-    }
-
-    if (data === "owner_agent") {
-      await updateUserFilters(chat_id, { ownerType: "مشاور املاک" });
-      bot.answerCallbackQuery(query.id, { text: "مشاور املاک ثبت شد" });
-      bot.sendMessage(chat_id, "فیلترها کامل شد. منتظر آگهی باشید.");
-      return;
+    if (data.startsWith("owner_")) {
+      const ownerType = data.replace("owner_", "");
+      await updateUserFilters(chat_id, { ownerType });
+      bot.answerCallbackQuery(query.id, { text: `${ownerType} ثبت شد` });
+      return bot.sendMessage(chat_id, "فیلترها کامل شد. منتظر آگهی باشید.");
     }
 
     if (data === "start_search") {
@@ -448,10 +443,6 @@ async function start() {
       return;
     }
   });
-
-  // ===============================
-  // توابع کمکی و Listener
-  // ===============================
 
   function normalizePrice(priceText) {
     if (!priceText) return 0;
@@ -473,53 +464,49 @@ async function start() {
     const category = post.data.category || "";
     const business = post.data.business_type || "";
 
-    // منطقه
-    if (user.filters.regions.length > 0) {
-      if (!user.filters.regions.includes(district)) return null;
+    const filters = user.filters || {};
+    if (!Array.isArray(filters.features)) filters.features = [];
+    if (!Array.isArray(filters.regions)) filters.regions = [];
+
+    if (filters.regions.length > 0) {
+      if (!filters.regions.includes(district)) return null;
     }
 
-    // خیابان
-    if (user.filters.street) {
-      if (!desc.includes(user.filters.street)) return null;
+    if (filters.street) {
+      if (!desc.includes(filters.street)) return null;
     }
 
-    // نوع ملک
-    if (user.filters.estateType) {
-      if (!category.includes(user.filters.estateType)) return null;
+    if (filters.estateType) {
+      if (!category.includes(filters.estateType)) return null;
     }
 
-    // نوع آگهی
-    if (user.filters.adType === "فروش") {
+    if (filters.adType === "فروش") {
       if (!desc.includes("فروش")) return null;
     }
 
-    if (user.filters.adType === "رهن کامل") {
+    if (filters.adType === "رهن کامل") {
       if (!desc.includes("رهن کامل")) return null;
     }
 
-    if (user.filters.adType === "رهن و اجاره") {
+    if (filters.adType === "رهن و اجاره") {
       if (!desc.includes("اجاره")) return null;
     }
 
-    // متراژ
-    if (user.filters.area) {
-      if (parseInt(area) < parseInt(user.filters.area)) return null;
+    if (filters.area) {
+      if (parseInt(area) < parseInt(filters.area)) return null;
     }
 
-    // قیمت
-    if (user.filters.price) {
+    if (filters.price) {
       const normalizedPrice = normalizePrice(price);
-      if (normalizedPrice > parseInt(user.filters.price)) return null;
+      if (normalizedPrice > parseInt(filters.price)) return null;
     }
 
-    // سال ساخت
-    if (user.filters.year) {
-      if (parseInt(year) < parseInt(user.filters.year)) return null;
+    if (filters.year) {
+      if (parseInt(year) < parseInt(filters.year)) return null;
     }
 
-    // امکانات
-    if (user.filters.features.length > 0) {
-      const features = user.filters.features;
+    if (filters.features.length > 0) {
+      const features = filters.features;
 
       const hasParking = desc.includes("پارکینگ");
       const hasStorage = desc.includes("انباری");
@@ -532,12 +519,11 @@ async function start() {
       if (features.includes("بالکن/تراس") && !hasBalcony) return null;
     }
 
-    // مالک / مشاور
-    if (user.filters.ownerType === "مالک") {
+    if (filters.ownerType === "مالک") {
       if (business !== "personal") return null;
     }
 
-    if (user.filters.ownerType === "مشاور املاک") {
+    if (filters.ownerType === "مشاور املاک") {
       if (business !== "business") return null;
     }
 
@@ -553,13 +539,14 @@ async function start() {
   }
 
   async function fetchDivarPostsForUser(user, botInstance) {
-    if (!user.filters.searchActive) return;
+    const filters = user.filters || {};
+    if (!filters.searchActive) return;
 
     try {
       const url = `https://api.divar.ir/v8/web-search/mashhad/real-estate`;
 
       const response = await axios.post(url, {
-        query: user.filters.estateType || "",
+        query: filters.estateType || "",
         city: "mashhad"
       });
 
@@ -589,11 +576,13 @@ async function start() {
   }
 
   async function fetchDivarHistoryForUser(user, botInstance) {
+    const filters = user.filters || {};
+
     try {
       const url = `https://api.divar.ir/v8/web-search/mashhad/real-estate`;
 
       const response = await axios.post(url, {
-        query: user.filters.estateType || "",
+        query: filters.estateType || "",
         city: "mashhad"
       });
 
@@ -635,7 +624,7 @@ async function start() {
     for (const user of users) {
       await fetchDivarPostsForUser(user, bot);
     }
-  }, 10000); // هر ۱۰ ثانیه، سبک‌تر و مناسب چند کاربر
+  }, 10000);
 }
 
 start();
