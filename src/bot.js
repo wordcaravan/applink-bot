@@ -11,9 +11,13 @@ const TOKENS = {
   sFrontToken: 'eyJ1aWQiOiJmNzVlNWYwYS04NDdjLTRhNjUtODIxYS05YmZhMGUxZDMxMjIiLCJhdGUiOjE3ODU2OTY1MzgwMDAsInVwIjp7ImFudGlDc3JmVG9rZW4iOm51bGwsImV4cCI6MTc4NTY5NjUzOCwiaWF0IjoxNzg1Njg1NzM4LCJpc3MiOiJodHRwczovL2FwaS5kaXZhci5pci92OC9hdXRoZW50aWNhdGUiLCJwYXJlbnRSZWZyZXNoVG9rZW5IYXNoMSI6bnVsbCwicGhvbmVOdW1iZXIiOiIrOTg5MTUzMDY3NTg0IiwicmVmcmVzaFRva2VuSGFzaDEiOiJjY2E5ZmY5ZDYyMWYxNmNlMmI5MDk1MzYwYzNiM2RiMmQ4Zjk1Y2VkYTA3ZGViZWQxODc5Mjg1MWE1NDVjMWY3Iiwic2Vzc2lvbkhhbmRsZSI6ImJiODIxOGRjLTYzODMtNDViMS1iZTliLTFhNWQ2MDBlMTM0MCIsInN0LXBlcm0iOnsidCI6MTc4NTY4NTczODYwMiwidiI6W119LCJzdC1yb2xlIjp7InQiOjE3ODU2ODU3Mzg2MDIsInYiOltdfSwic3ViIjoiZjc1ZTVmMGEtODQ3Yy00YTY1LTgyMWEtOWJmYTBlMWQzMTIyIiwidElkIjoicHVibGljIn19',
 };
 
+// proxy config
+const proxyUrl = 'http://192.168.154.12:8080';
+
 // base client
 const client = axios.create({
   baseURL: 'https://api.divar.ir/v8',
+  proxy: false, // مهم: چون از Every Proxy استفاده می‌کنیم
   headers: {
     'User-Agent': 'Mozilla/5.0',
     'Cookie': [
@@ -23,6 +27,11 @@ const client = axios.create({
       `sFrontToken=${TOKENS.sFrontToken}`,
     ].join('; '),
     Authorization: `Bearer ${TOKENS.sAccessToken}`,
+  },
+  // تنظیمات پروکسی
+  proxy: {
+    host: '192.168.154.12',
+    port: 8080,
   },
 });
 
