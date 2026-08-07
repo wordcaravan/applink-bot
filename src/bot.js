@@ -1,33 +1,38 @@
 const axios = require('axios');
 const TelegramBot = require('node-telegram-bot-api');
+const HttpsProxyAgent = require('https-proxy-agent');
 
-// config
+// =========================
+// CONFIG
+// =========================
+
+// دیوار
 const COOKIES = {
-  did: 'd631d10f-0a20-4c73-8731-9ee44be23bbb',
-  csid: '052d489dca9a2fe40c',
+  did: process.env.DID,
+  csid: process.env.CSID,
 };
 
 const TOKENS = {
-  sAccessToken: 'توکن_اصلی_دیوار',
-  sFrontToken: 'توکن_فرانت_دیوار',
+  sAccessToken: process.env.SACCESS,
+  sFrontToken: process.env.SFRONT,
 };
 
-// proxy config
-const proxyUrl = 'http://192.168.154.12:8080';
+// پروکسی ایران (حتماً باید IP واقعی ایران باشد)
+const agent = new HttpsProxyAgent(process.env.IR_PROXY);
 
-// telegram config
-const TELEGRAM_TOKEN = 'توکن_ربات_تلگرام';
-const CHAT_ID = 'چت_آیدی_خودت';
+// تلگرام
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
 
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
-// base client
+// =========================
+// AXIOS CLIENT
+// =========================
+
 const client = axios.create({
   baseURL: 'https://api.divar.ir/v8',
-  proxy: {
-    host: '192.168.154.12',
-    port: 8080,
-  },
+  httpsAgent: agent,
   headers: {
     'User-Agent': 'Mozilla/5.0',
     'Cookie': [
@@ -40,7 +45,10 @@ const client = axios.create({
   },
 });
 
-// fetch listings
+// =========================
+// FETCH LISTINGS
+// =========================
+
 async function fetchListings(params) {
   const body = {
     json_schema: {
@@ -55,13 +63,19 @@ async function fetchListings(params) {
   return res.data?.web_widgets?.post_list || [];
 }
 
-// send to telegram
+// =========================
+// SEND TO TELEGRAM
+// =========================
+
 function sendToTelegram(post) {
   const text = `[NEW] ${post.data?.title}\n${post.data?.description}\n${post.data?.share?.link}`;
   bot.sendMessage(CHAT_ID, text);
 }
 
-// listener
+// =========================
+// LISTENER
+// =========================
+
 async function startListener() {
   let lastIds = new Set();
 
